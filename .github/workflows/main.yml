@@ -1,0 +1,33 @@
+name: Deploy SpikeSprite to Aruba via FTP
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy-spikecut:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to SpikeSprite
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.0
+        with:
+          server: ftp.filippomorano.com
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: /www.filippomorano.com/projects/spikesprite/
+          exclude: |
+            **/.git*/**
+            **/.github/**
+            **/node_modules/**
+            **/.vscode/**
+            **/.DS_Store
+            **/README.md
+            **/test_*
+            **/library/**

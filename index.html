@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fucina Sprite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&family=Chivo:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/libs/fflate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/FBXLoader.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1 class="logo">Fucina Sprite</h1>
+    <p class="tag">Da un'immagine o da un modello 3D a sprite animati in 8 direzioni</p>
+  </header>
+
+  <aside class="side">
+    <section class="step">
+      <h2><span class="n">1</span>Sorgente</h2>
+      <div class="seg" id="srcSeg"><button data-v="image" aria-pressed="true">Immagine 2D</button><button data-v="model" aria-pressed="false">Modello 3D</button><button data-v="repair" aria-pressed="false">Ripara sprite</button></div>
+      <div class="panel" id="pImage" style="margin-top:12px">
+        <label class="drop" id="drop">
+          <input type="file" accept="image/*" id="file" hidden>
+          <img id="thumb" alt="" hidden>
+          <strong>Trascina qui un'immagine</strong>
+          <span>oppure clicca, o incolla con Ctrl+V. Rende meglio un personaggio a figura intera, in piedi, con braccia e gambe visibili.</span>
+        </label>
+        <button class="link" id="demo">Prova con il cavaliere di esempio</button>
+      </div>
+      <div class="panel" id="pRepair" hidden style="margin-top:12px">
+        <label class="drop" id="rDrop">
+          <input type="file" accept="image/*" id="rFile" multiple hidden>
+          <img id="rThumb" alt="" hidden>
+          <strong>Trascina qui lo sprite da riparare</strong>
+          <span>Uno sprite sheet PNG, una GIF animata o più frame separati (vengono ordinati per nome).</span>
+        </label>
+        <label class="check"><input type="checkbox" id="rGrid">Griglia manuale (se i frame si toccano)</label>
+        <div class="row" id="rGridBox" hidden><span class="lbl">Colonne</span><input type="number" id="rCols" min="1" max="64" value="8"><span class="lbl">Righe</span><input type="number" id="rRows" min="1" max="64" value="1"></div>
+        <label class="check"><input type="checkbox" id="rOne">Tutti i frame sono un'unica animazione</label>
+        <div class="row"><span class="lbl">Appoggio</span><div class="seg" id="rAnchorSeg"><button data-v="feet" aria-pressed="true">Piedi</button><button data-v="center" aria-pressed="false">Centro</button></div></div>
+        <div class="row"><span class="lbl">Posizione</span><div class="seg" id="rStabSeg"><button data-v="auto" aria-pressed="true">Automatica</button><button data-v="lock" aria-pressed="false">Sul posto</button><button data-v="smooth" aria-pressed="false">Levigata</button><button data-v="none" aria-pressed="false">Originale</button></div></div>
+        <div class="row"><span class="lbl">Fluidità</span><select id="rTween"><option value="auto">Frame intermedi automatici</option><option value="0">Nessun frame aggiunto</option><option value="1">1 frame tra ogni coppia (×2)</option><option value="2">2 frame tra ogni coppia (×3)</option></select></div>
+        <label class="check"><input type="checkbox" id="rFix" checked>Ricostruisci i frame fuori sequenza</label>
+        <label class="check"><input type="checkbox" id="rClean" checked>Togli pixel sparsi più piccoli di <input type="number" id="rMin" min="1" max="50" value="4" style="width:48px;margin-left:6px"> px</label>
+        <label class="check"><input type="checkbox" id="rDedup" checked>Elimina i frame doppi</label>
+        <label class="check"><input type="checkbox" id="rLoop" checked>Animazione in loop</label>
+        <p class="warn" id="rReport" style="white-space:pre-line"></p>
+        <h3 style="font-size:15px;margin:18px 0 6px">Aggiungi animazioni mancanti</h3>
+        <p class="hint">Prima indica cosa contiene ogni riga con il menu nell'elenco "Animazioni" (Fermo, Corsa…). Poi spunta qui quelle da creare: vengono generate con lo stesso personaggio, gli stessi colori e la stessa cella.</p>
+        <div class="row"><span class="lbl">Personaggio dal frame</span>riga <input type="number" id="gRow" min="1" value="1" style="width:52px"> frame <input type="number" id="gFrame" min="1" value="1" style="width:52px"></div>
+        <div class="row"><span class="lbl">Lo sprite guarda</span><select id="gFace"><option value="right">verso destra (di lato)</option><option value="left">verso sinistra (di lato)</option><option value="front">verso di me (di fronte)</option></select></div>
+        <div id="genList"></div>
+        <div id="gSkel" hidden>
+          <p class="hint">Scheletro usato per le animazioni nuove: trascina i punti se non sono al posto giusto.</p>
+          <div id="gSkelSlot"></div>
+          <div class="btns"><button class="btn" id="gAuto">Rileva di nuovo lo scheletro</button></div>
+        </div>
+      </div>
+      <div class="panel" id="pModel" hidden style="margin-top:12px">
+        <label class="drop" id="drop3">
+          <input type="file" accept=".glb,.gltf,.fbx" id="file3" multiple hidden>
+          <strong>Trascina qui il modello (.glb o .fbx)</strong>
+          <span>Puoi selezionare più file insieme: il modello e le animazioni scaricate da Mixamo (una per file, "Without Skin").</span>
+        </label>
+        <div class="field"><label for="mHeight">Altezza del personaggio</label><output id="mHeightO">64 px</output><input type="range" id="mHeight" min="24" max="256" step="2" value="64"></div>
+        <label class="check"><input type="checkbox" id="inPlace" checked>Animazioni sul posto (niente spostamento in avanti)</label>
+        <label class="check"><input type="checkbox" id="flat">Colori piatti, senza luci</label>
+        <p class="hint" id="modelInfo"></p>
+      </div>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">2</span>Stile</h2>
+      <div class="imgOnly">
+        <div class="row"><span class="lbl">Sfondo</span>
+          <select id="bg"><option value="auto">Rimuovi automaticamente</option><option value="keep">Mantieni com'è</option></select></div>
+        <div class="field"><label for="tol">Tolleranza sfondo</label><output id="tolO">20</output><input type="range" id="tol" min="0" max="100" value="20"></div>
+        <label class="check"><input type="checkbox" id="shadowRm" checked>Togli l'ombra grigia a terra</label>
+        <label class="check"><input type="checkbox" id="flip">Nell'immagine guarda a sinistra (la giro)</label>
+      </div>
+      <label class="check"><input type="checkbox" id="pixel" checked>Stile pixel art</label>
+      <div class="imgOnly">
+        <label class="check"><input type="checkbox" id="autoRes" checked>Rileva la risoluzione originale dei pixel</label>
+        <div class="field"><label for="height">Altezza sprite</label><output id="heightO">48 px</output><input type="range" id="height" min="16" max="256" step="2" value="48"></div>
+      </div>
+      <div class="field"><label for="colors">Numero di colori</label><output id="colorsO">24</output><input type="range" id="colors" min="0" max="48" value="24"></div>
+      <label class="check"><input type="checkbox" id="outline" checked>Contorno <input type="color" id="outlineC" value="#1a1424" aria-label="Colore contorno"></label>
+    </section>
+
+    <section class="step imgOnly">
+      <h2><span class="n">3</span>Scheletro</h2>
+      <div class="row"><span class="lbl">Tipo</span>
+        <div class="seg" id="subSeg"><button data-v="char" aria-pressed="true">Personaggio</button><button data-v="obj" aria-pressed="false">Oggetto</button></div></div>
+      <div id="charOnly">
+        <div class="rigbox" id="jointsBox"><canvas id="joints" width="10" height="10"></canvas></div>
+        <div class="jlabel" id="jlabel">Trascina i punti per correggere le articolazioni.</div>
+        <label class="check"><input type="checkbox" id="showParts" checked>Mostra le 22 parti colorate</label>
+        <div class="btns">
+          <button class="btn" id="autoJ">Rileva automaticamente</button>
+          <button class="btn" id="aiJ" hidden>Rileva con Claude</button>
+        </div>
+        <div class="row" style="margin-top:12px"><span class="lbl">Posa</span>
+          <div class="seg" id="poseSeg"><button data-v="neutral" aria-pressed="true">Braccia lungo i fianchi</button><button data-v="image" aria-pressed="false">Come nell'immagine</button></div></div>
+        <div class="field"><label for="thick">Spessore del corpo</label><output id="thickO">100%</output><input type="range" id="thick" min="30" max="160" value="100"></div>
+        <p class="warn" id="recon" hidden></p>
+      </div>
+      <p class="hint" id="objHint" hidden>Gli oggetti diventano un volume unico: fluttuano, rimbalzano, girano su sé stessi.</p>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">4</span>Animazioni</h2>
+      <div class="anims" id="anims"></div>
+    </section>
+
+    <section class="step notRepair">
+      <h2><span class="n">5</span>Vista</h2>
+      <div class="row"><span class="lbl">Direzioni</span>
+        <div class="seg" id="dirSeg"><button data-v="1" aria-pressed="false">1</button><button data-v="2" aria-pressed="false">2 lati</button><button data-v="4" aria-pressed="false">4</button><button data-v="8" aria-pressed="true">8</button></div></div>
+      <div class="row"><span class="lbl">Camera</span>
+        <div class="seg" id="elevSeg"><button data-v="0" aria-pressed="true">Di lato</button><button data-v="30" aria-pressed="false">Dall'alto</button><button data-v="35.26" aria-pressed="false">Isometrica</button></div></div>
+      <label class="check"><input type="checkbox" id="shade" checked>Volume con luci (rende la profondità di lato)</label>
+      <label class="check"><input type="checkbox" id="shadow" checked>Ombra a terra</label>
+    </section>
+
+    <section class="step">
+      <h2><span class="n">6</span>Esporta</h2>
+      <div class="row"><span class="lbl">Nome</span><input type="text" id="name" value="personaggio" style="flex:1;min-width:0"></div>
+      <div class="row"><span class="lbl">Scala</span>
+        <div class="seg" id="scaleSeg"><button data-v="1" aria-pressed="true">1×</button><button data-v="2" aria-pressed="false">2×</button><button data-v="4" aria-pressed="false">4×</button></div></div>
+      <div class="btns stack">
+        <button class="btn primary" id="expZip">Scarica pacchetto completo (.zip)</button>
+        <button class="btn" id="expPng">Scarica solo lo sprite sheet (.png)</button>
+        <button class="btn" id="expJson">Scarica solo i dati frame (.json)</button>
+      </div>
+      <div class="progress" id="progress"></div>
+      <p class="hint">Righe = animazione × direzione (es. walk_E). Il pacchetto contiene sprite sheet, JSON per Phaser/Pixi, SpriteFrames per Godot 4 e ogni frame come PNG.</p>
+    </section>
+  </aside>
+
+  <main class="main">
+    <div class="bar">
+      <div><h3 id="curName">Fermo</h3><span class="count" id="count">0 / 0</span></div>
+      <span class="spacer"></span>
+      <div class="dirs" id="dirPad" aria-label="Direzione dell'anteprima">
+        <button data-d="NW" title="Retro-sinistra">↖</button><button data-d="N" title="Retro">↑</button><button data-d="NE" title="Retro-destra">↗</button>
+        <button data-d="W" title="Sinistra">←</button><span class="mid" id="dirName">S</span><button data-d="E" title="Destra">→</button>
+        <button data-d="SW" title="Fronte-sinistra">↙</button><button data-d="S" title="Fronte" aria-pressed="true">↓</button><button data-d="SE" title="Fronte-destra">↘</button>
+      </div>
+      <div class="grp">
+        <button class="ibtn" id="cmpBtn" title="Confronta prima e dopo" aria-pressed="true" aria-label="Confronta prima e dopo" hidden>⇆</button>
+        <button class="ibtn" id="gridBtn" title="Tutte le direzioni insieme" aria-pressed="false" aria-label="Tutte le direzioni">▦</button>
+        <button class="ibtn" id="prev" title="Frame precedente" aria-label="Frame precedente">◀</button>
+        <button class="ibtn" id="play" title="Riproduci o metti in pausa" aria-label="Pausa">❚❚</button>
+        <button class="ibtn" id="next" title="Frame successivo" aria-label="Frame successivo">▶</button>
+      </div>
+    </div>
+    <div class="stage" id="stage">
+      <canvas id="view"></canvas>
+      <div class="empty" id="empty"><div><b>Nessuno sprite</b>Carica un'immagine o un modello 3D a sinistra, oppure prova il cavaliere di esempio.</div></div>
+      <div class="info" id="info" hidden></div>
+    </div>
+    <div class="strip" id="strip"></div>
+  </main>
+</div>
+<div id="toast" role="status"></div>
+<script src="js/imaging.js"></script>
+<script src="js/skeleton.js"></script>
+<script src="js/puppet.js"></script>
+<script src="js/anims.js"></script>
+<script src="js/render.js"></script>
+<script src="js/sources.js"></script>
+<script src="js/repair.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

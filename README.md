@@ -3,6 +3,19 @@
 Generatore di sprite animati in 8 direzioni, in HTML + JavaScript (nessuna build).
 Apri `index.html` nel browser (serve internet per three.js, JSZip e i font).
 
+## Interfaccia (stile SpikeCut)
+- **Topbar**: ☰ comprime/espande la barra strumenti, nome dello sprite (nome dei file esportati),
+  stato (✓ Pronto), Apri, Guida e i menu **File ▾**, **Vista ▾**, **⋯**.
+- **Barra schede**: la sorgente — Immagine 2D, Modello 3D, Ripara sprite.
+- **Rail a sinistra**: strumenti a sezioni (Sorgente, Anteprima, Scheletro, Esporta), icona + nome + tasto.
+- **Anteprima** al centro: direzione, riproduzione, frame; i file si possono trascinare qui.
+- **Pannello a schede** a destra: Sorgente, Stile, Scheletro, Animazioni, Vista, Esporta.
+- **Status bar**: modalità, animazione e direzione, cella, mostra/nascondi barre, versione.
+- Le maniglie tra i riquadri si trascinano per cambiarne la larghezza (doppio clic = nascondi);
+  le linguette ‹ › li mostrano e nascondono. Larghezze e scheda attiva restano memorizzate.
+- Scorciatoie: O apri · 1/2/3 sorgente · Spazio riproduci · ←/→ frame · G tutte le direzioni ·
+  C prima/dopo · [ ] barre · Ctrl+S pacchetto .zip · F1 guida.
+
 ## Due sorgenti
 **Immagine 2D**
 1. Pulizia: sfondo e ombra rimossi, risoluzione originale dei pixel rilevata, riduzione "a moda" (nitida).
@@ -43,4 +56,5 @@ Carica il modello e le animazioni insieme; renderizzate in 8 direzioni e convert
 - `js/sources.js` sorgenti (pupazzo e modelli 3D)
 - `js/repair.js` riparazione di sprite esistenti
 - `js/render.js` render 8 direzioni e conversione in pixel art
+- `js/layout.js` layout stile SpikeCut: topbar, menu, rail, pannello a schede, status bar
 - `js/app.js` interfaccia ed esportazione

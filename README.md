@@ -3,6 +3,19 @@
 Generatore di sprite animati in 8 direzioni, in HTML + JavaScript (nessuna build).
 Apri `index.html` nel browser (serve internet per three.js, JSZip e i font).
 
+## Immagine → modello 3D (AI gratuita)
+Scheda **🤖 Immagine → 3D (AI)** (tasto 4): da una foto o un disegno a un vero modello 3D con texture (.glb),
+come fa Tripo3D, usando modelli open source gratuiti pubblicati su Hugging Face:
+**TRELLIS** (Microsoft, consigliato), **Hunyuan3D-2** (Tencent), **TripoSR** (Stability AI + Tripo).
+- La richiesta parte dal browser con il client ufficiale di Gradio (`js/vendor/gradio-client.js`): niente server.
+- I parametri si leggono dall'API dello Space mentre gira, quindi piccoli cambi degli Space non rompono nulla;
+  si può anche scrivere uno Space diverso in "Altre opzioni".
+- Limiti degli Space gratuiti: coda d'attesa e quota GPU giornaliera. Con un token Hugging Face gratuito
+  (tipo "Read") la quota sale; il token resta solo nel browser.
+- Il modello si gira con il mouse, si scarica in .glb oppure diventa la sorgente "Modello 3D" per creare sprite
+  (senza animazioni: fermo, gira, fluttua, rimbalza; per camminare/correre passa da Mixamo).
+- Anche il pupazzo ricavato da "Immagine 2D" si scarica in .glb (Esporta → Scarica il modello 3D).
+
 ## Interfaccia (stile SpikeCut)
 - **Topbar**: ☰ comprime/espande la barra strumenti, nome dello sprite (nome dei file esportati),
   stato (✓ Pronto), Apri, Guida e i menu **File ▾**, **Vista ▾**, **⋯**.
@@ -14,7 +27,7 @@ Apri `index.html` nel browser (serve internet per three.js, JSZip e i font).
 - Le maniglie tra i riquadri si trascinano per cambiarne la larghezza (doppio clic = nascondi);
   le linguette ‹ › li mostrano e nascondono. Larghezze e scheda attiva restano memorizzate.
 - Scorciatoie: O apri · 1/2/3 sorgente · Spazio riproduci · ←/→ frame · G tutte le direzioni ·
-  C prima/dopo · [ ] barre · Ctrl+S pacchetto .zip · F1 guida.
+  4 AI 3D · C prima/dopo · [ ] barre · Ctrl+S pacchetto .zip · F1 guida.
 
 ## Due sorgenti
 **Immagine 2D**
@@ -57,4 +70,5 @@ Carica il modello e le animazioni insieme; renderizzate in 8 direzioni e convert
 - `js/repair.js` riparazione di sprite esistenti
 - `js/render.js` render 8 direzioni e conversione in pixel art
 - `js/layout.js` layout stile SpikeCut: topbar, menu, rail, pannello a schede, status bar
+- `js/ai3d.js` immagine → modello 3D con gli Space gratuiti di Hugging Face
 - `js/app.js` interfaccia ed esportazione

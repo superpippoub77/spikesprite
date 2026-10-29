@@ -14,6 +14,8 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/libs/fflate.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/FBXLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/exporters/GLTFExporter.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body class="sc-theme">
@@ -34,6 +36,7 @@
     <button class="tab" data-v="image" aria-pressed="true" title="Da un'immagine 2D (1)">🖼 Immagine 2D</button>
     <button class="tab" data-v="model" aria-pressed="false" title="Da un modello 3D .glb / .fbx (2)">🧊 Modello 3D</button>
     <button class="tab" data-v="repair" aria-pressed="false" title="Ripara uno sprite sheet o una GIF (3)">🩹 Ripara sprite</button>
+    <button class="tab" data-v="ai" aria-pressed="false" title="Crea un modello 3D da un'immagine con l'intelligenza artificiale, gratis (4)">🤖 Immagine → 3D (AI)</button>
   </div>
 </nav>
 
@@ -72,6 +75,17 @@
       </div>
       <div class="info" id="info" hidden></div>
       <div class="drop-hint" id="stageDrop">Rilascia qui i file</div>
+      <div class="ai-stage" id="aiStage" hidden>
+        <canvas id="aiView"></canvas>
+        <div class="empty-state" id="aiEmpty">
+          <div class="es-box">
+            <div class="es-icon">🤖</div>
+            <h2>Immagine → modello 3D</h2>
+            <p>Carica una foto o un disegno a destra e premi «Genera modello 3D»: un modello di intelligenza artificiale gratuito (TRELLIS, Hunyuan3D o TripoSR) ne ricava un vero modello 3D con texture, da girare qui, scaricare in .glb e usare nei giochi.</p>
+            <p class="hint">Rende meglio un soggetto solo, intero, su sfondo semplice.</p>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="strip" id="strip"></div>
   </main>
@@ -120,6 +134,44 @@
           <p class="hint">Scheletro usato per le animazioni nuove: trascina i punti se non sono al posto giusto.</p>
           <div id="gSkelSlot"></div>
           <div class="btns"><button class="btn" id="gAuto">Rileva di nuovo lo scheletro</button></div>
+        </div>
+      </div>
+      <div class="panel" id="pAI" hidden>
+        <div id="aiPanel">
+          <div class="sec-title">Immagine → modello 3D (AI gratuita)</div>
+          <label class="drop" id="aiDrop">
+            <input type="file" accept="image/*" id="aiFile" hidden>
+            <img id="aiThumb" alt="" hidden>
+            <strong>Trascina qui l'immagine</strong>
+            <span>oppure clicca, o incolla con Ctrl+V. Un personaggio, un'auto o un oggetto, intero e su sfondo semplice.</span>
+          </label>
+          <div class="row"><span class="lbl">Modello AI</span><select id="aiSpace"></select></div>
+          <p class="hint" id="aiNote"></p>
+          <div id="aiTrellisOpts">
+            <div class="row"><span class="lbl">Texture</span><select id="aiTex"><option value="512">512 px (leggera)</option><option value="1024" selected>1024 px</option><option value="2048">2048 px (dettagliata)</option></select></div>
+            <div class="row"><span class="lbl">Triangoli</span><select id="aiSimp"><option value="0.98">Pochissimi (giochi sul telefono)</option><option value="0.95" selected>Pochi (giochi)</option><option value="0.9">Medi</option><option value="0.8">Tanti (dettaglio)</option></select></div>
+          </div>
+          <div class="btns">
+            <button class="btn primary" id="aiGo">Genera modello 3D</button>
+            <button class="btn" id="aiCancel" hidden>Annulla</button>
+          </div>
+          <p class="progress ai-status" id="aiStatus"></p>
+          <div id="aiResult" hidden>
+            <div class="sec-title sep">Il tuo modello</div>
+            <p class="hint" id="aiInfo"></p>
+            <div class="btns stack">
+              <button class="btn primary" id="aiDownload">Scarica il modello (.glb)</button>
+              <button class="btn" id="aiUse">Usalo per creare sprite (Modello 3D)</button>
+            </div>
+            <p class="hint">Il .glb si carica in Spike Rally (Opzioni → La mia auto) e in qualunque motore 3D. Per farlo camminare o correre caricalo su Mixamo (gratis), che aggiunge lo scheletro e le animazioni.</p>
+          </div>
+          <details class="more">
+            <summary>Altre opzioni</summary>
+            <label class="fld-col">Space Hugging Face personalizzato<input type="text" id="aiCustom" placeholder="es. tencent/Hunyuan3D-2.1" spellcheck="false"></label>
+            <label class="fld-col">Token Hugging Face (facoltativo)<input type="text" id="aiToken" placeholder="hf_…" autocomplete="off" spellcheck="false"></label>
+            <p class="hint">Gli Space gratuiti hanno una coda e una quota GPU giornaliera. Con un token gratuito (huggingface.co → Settings → Access Tokens, tipo «Read») la quota sale. Il token resta solo in questo browser.</p>
+            <label class="btn file-btn">Apri un .glb già fatto…<input type="file" accept=".glb" id="aiOpenGlb" hidden></label>
+          </details>
         </div>
       </div>
       <div class="panel" id="pModel" hidden>
@@ -200,6 +252,7 @@
         <button class="btn primary" id="expZip">Scarica pacchetto completo (.zip)</button>
         <button class="btn" id="expPng">Scarica solo lo sprite sheet (.png)</button>
         <button class="btn" id="expJson">Scarica solo i dati frame (.json)</button>
+        <button class="btn" id="expGlb">Scarica il modello 3D (.glb)</button>
       </div>
       <div class="progress" id="progress"></div>
       <p class="hint">Il nome dei file è quello scritto in alto. Righe = animazione × direzione (es. walk_E). Il pacchetto contiene sprite sheet, JSON per Phaser/Pixi, SpriteFrames per Godot 4 e ogni frame come PNG.</p>
@@ -218,7 +271,8 @@
 <script src="js/sources.js"></script>
 <script src="js/repair.js"></script>
 <script src="js/layout.js"></script>
+<script src="js/ai3d.js"></script>
 <script src="js/app.js"></script>
-<script>SpriteLayout.afterInit();</script>
+<script>SpriteLayout.afterInit();AI3D.init();</script>
 </body>
 </html>

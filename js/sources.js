@@ -30,7 +30,7 @@ async function loadModel(files,opt){
     cs.forEach((c,i)=>{c.name=(!c.name||/mixamo|take|animation|^clip/i.test(c.name))?(cs.length>1?base+'_'+(i+1):base):c.name;clips.push(c)});
     if(!model&&hasMesh(obj))model=obj}
   if(!model)throw new Error('Nessun modello con una mesh tra i file caricati.');
-  if(!clips.length)throw new Error('Il modello non ha animazioni: scaricale da Mixamo e caricale insieme al modello.');
+  // senza animazioni (es. modello creato dall'AI): si usano movimenti semplici dell'intero modello
   return{model,clips};
 }
 function modelSource(M,opt,prev){
@@ -52,6 +52,20 @@ function modelSource(M,opt,prev){
   const rootBone=bones.find(b=>/hips|pelvis/i.test(b.name))||bones[0];
   const prepared=clips.map(cl=>{const c=cl.clone();if(opt.inPlace&&rootBone){const nm=rootBone.name;
     c.tracks.forEach(tr=>{if(tr.name===nm+'.position'||tr.name.endsWith('/'+nm+'.position')||tr.name===nm.replace(/[:]/g,'')+'.position'){const vv=tr.values,x0=vv[0],z0=vv[2];for(let i=0;i<vv.length;i+=3){vv[i]=x0;vv[i+2]=z0}}})}return c});
+  // modello fermo, senza scheletro animato: fermo, gira su se stesso, fluttua, rimbalza
+  const STATIC={idle:{label:'Fermo',n:2,fps:4},spin:{label:'Gira su se stesso',n:16,fps:12},float:{label:'Fluttua',n:12,fps:10},bounce:{label:'Rimbalza',n:10,fps:12}};
+  if(!clips.length){const anim={};for(const[k,d]of Object.entries(STATIC))anim[k]={label:d.label,n:d.n,fps:d.fps,loop:true,on:true,amp:1,...(prev?.[k]?{on:prev[k].on,n:prev[k].n,fps:prev[k].fps}:{})};
+    const y0=model.position.y,H0=opt.height;
+    return{kind:'model',turn,H:H0,W:(box.max.x-box.min.x),anim,palette:null,ownOutline:false,
+      setFrame(key,i,wantPose){const a=anim[key],t=a.n?i/a.n:0;body.rotation.set(0,0,0);model.position.y=y0;
+        if(key==='spin')body.rotation.y=t*Math.PI*2;
+        else if(key==='float')model.position.y=y0+H0*.06*(1+Math.sin(t*Math.PI*2));
+        else if(key==='bounce')model.position.y=y0+H0*.18*Math.abs(Math.sin(t*Math.PI));
+        turn.rotation.set(0,0,0);turn.updateMatrixWorld(true);if(wantPose)return{};
+        // per la cella: il modello in tutte le rotazioni possibili (gira su se stesso) e alla quota attuale
+        const b2=new THREE.Box3().setFromObject(model),r=Math.max(Math.abs(b2.min.x),Math.abs(b2.max.x),Math.abs(b2.min.z),Math.abs(b2.max.z));
+        return[{x:-r,y:b2.min.y,z:-r},{x:r,y:b2.max.y,z:r},{x:-r,y:b2.max.y,z:r},{x:r,y:b2.min.y,z:-r}]}};
+  }
   const mixer=new THREE.AnimationMixer(model),anim={},byKey={};
   const used=new Set();prepared.forEach(c=>{let k=c.name.replace(/[^\w\-]+/g,'_').toLowerCase()||'anim';while(used.has(k))k+='_';used.add(k);byKey[k]=c;
     const n=Math.max(4,Math.min(24,Math.round(c.duration*12)));anim[k]={label:c.name,n,fps:12,loop:true,on:true,amp:1,...(prev?.[k]?{on:prev[k].on,n:prev[k].n,fps:prev[k].fps}:{})}});

@@ -13,7 +13,7 @@
  */
 
 // Versione e mese di rilascio: da aggiornare a ogni rilascio insieme al README.
-const APP_VERSION = "3.1";
+const APP_VERSION = "3.2";
 const APP_RELEASE = "Ott 2026";
 
 // Icone in stile SpikeCut (viewBox 22, tratto 1.6)
@@ -24,6 +24,7 @@ const LAYOUT_ICONS = {
   menu: `<svg viewBox="0 0 22 22" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h14M4 11h14M4 16h14"/></svg>`,
   image: SC_ICON("M3 4h16v14H3z M3 15l5-5 4 4 2-2 5 5", `<circle cx="14.5" cy="8.5" r="1.5"/>`),
   model: SC_ICON("M11 2l8 4.5v9L11 20l-8-4.5v-9z M3 6.5l8 4.5 8-4.5 M11 11v9"),
+  ai: SC_ICON("M5 7h12v10H5z M11 3v4 M8.5 11h.01 M13.5 11h.01 M9 14.5h4 M3 11v3 M19 11v3", `<circle cx="11" cy="3" r="1"/>`),
   repair: SC_ICON("M14 4a4 4 0 0 0-4.6 5.2L3.5 15a1.8 1.8 0 0 0 2.5 2.5l5.8-5.9A4 4 0 0 0 17 7l-2.5 2.5-2-.5-.5-2z"),
   demo: SC_ICON("M5 17L15 7 M13 5l4 4 M4 18l2-2 M7 13l2 2 M17 3l2 2-3 1z"),
   grid: SC_ICON("M3 3h7v7H3z M12 3h7v7h-7z M3 12h7v7H3z M12 12h7v7h-7z"),
@@ -64,6 +65,7 @@ const LAYOUT = {
         { icon: "🖼", label: "Apri immagine…", shortcut: "O", onClick: () => SpriteLayout.open("image") },
         { icon: "🧊", label: "Apri modello 3D…", onClick: () => SpriteLayout.open("model") },
         { icon: "🩹", label: "Apri sprite da riparare…", onClick: () => SpriteLayout.open("repair") },
+        { icon: "🤖", label: "Immagine → modello 3D (AI)…", onClick: () => SpriteLayout.open("ai") },
         { icon: "⚔", label: "Cavaliere di esempio", onClick: () => SpriteLayout.demo() },
         { separator: true },
         { icon: "📦", label: "Scarica pacchetto completo (.zip)", shortcut: "Ctrl+S", onClick: () => clickEl("#expZip") },
@@ -103,6 +105,7 @@ const LAYOUT = {
     { id: "railImage", icon: "image", label: "Apri immagine…", key: "O", title: "Carica un'immagine 2D", onClick: () => SpriteLayout.open("image") },
     { id: "railModel", icon: "model", label: "Apri modello 3D…", title: "Carica un modello .glb / .fbx con le animazioni", onClick: () => SpriteLayout.open("model") },
     { id: "railRepair", icon: "repair", label: "Ripara sprite…", title: "Carica uno sprite sheet, una GIF o più frame", onClick: () => SpriteLayout.open("repair") },
+    { id: "railAI", icon: "ai", label: "Immagine → 3D (AI)…", key: "4", title: "Crea un modello 3D da un'immagine con l'AI gratuita", onClick: () => SpriteLayout.open("ai") },
     { id: "railDemo", icon: "demo", label: "Esempio", title: "Prova con il cavaliere di esempio", onClick: () => SpriteLayout.demo() },
 
     { section: "Anteprima" },
@@ -123,7 +126,7 @@ const LAYOUT = {
   ],
 
   // Nomi delle modalità (barra schede e status bar)
-  modes: { image: "Immagine 2D", model: "Modello 3D", repair: "Ripara sprite" }
+  modes: { image: "Immagine 2D", model: "Modello 3D", repair: "Ripara sprite", ai: "Immagine → 3D (AI)" }
 };
 
 const SpriteLayout = {
@@ -303,7 +306,7 @@ const SpriteLayout = {
   },
 
   showPanelTab(id) {
-    const page = this.pages.find((p) => p.dataset.tab === id && !p.hidden) || this.pages.find((p) => !p.hidden);
+    const page = this.pages.find((p) => p.dataset.tab === id && !this.pageOff(p)) || this.pages.find((p) => !this.pageOff(p));
     if (!page) return;
     // sul telefono il pannello copre l'anteprima: si apre solo quando lo chiedi
     if ($q("#rightSidebar").classList.contains("hidden") && !window.matchMedia("(max-width: 760px)").matches) this.toggleSide("right");
@@ -313,13 +316,16 @@ const SpriteLayout = {
     store.set("fs-panel-tab", this.activeTab);
   },
 
+  /** scheda non disponibile: nascosta da app.js, o non usata dalla sorgente AI (che ha tutto in "Sorgente") */
+  pageOff(p) { return !p || p.hidden || (this.mode() === "ai" && p.dataset.tab !== "src"); },
+
   syncPanelTabs() {
     $q("#panelTabs").querySelectorAll("button").forEach((b) => {
-      b.hidden = !!this.pages.find((p) => p.dataset.tab === b.dataset.tab)?.hidden;
+      b.hidden = this.pageOff(this.pages.find((p) => p.dataset.tab === b.dataset.tab));
     });
     const cur = this.pages.find((p) => p.dataset.tab === this.activeTab);
-    if (!cur || cur.hidden) {
-      const first = this.pages.find((p) => !p.hidden);
+    if (this.pageOff(cur)) {
+      const first = this.pages.find((p) => !this.pageOff(p));
       if (first) {
         this.activeTab = first.dataset.tab;
         this.pages.forEach((p) => p.classList.toggle("active", p === first));
@@ -351,6 +357,8 @@ const SpriteLayout = {
     document.querySelectorAll("#srcSeg .tab").forEach((t) => t.classList.toggle("active", t.dataset.v === m));
     // le voci del rail legate all'immagine 2D seguono le sezioni .imgOnly
     document.querySelectorAll("#rail .imgOnly").forEach((el) => { el.hidden = m !== "image"; });
+    $q("#pAI").hidden = m !== "ai";
+    if (typeof AI3D !== "undefined") AI3D.setActive(m === "ai");
     this.syncPanelTabs();
   },
 
@@ -378,7 +386,7 @@ const SpriteLayout = {
   open(v) {
     if (v) this.setMode(v);
     this.showPanelTab("src");
-    clickEl({ image: "#file", model: "#file3", repair: "#rFile" }[this.mode()]);
+    clickEl({ image: "#file", model: "#file3", repair: "#rFile", ai: "#aiFile" }[this.mode()]);
   },
 
   demo() {
@@ -498,6 +506,7 @@ const SpriteLayout = {
       const is3D = fs.some((f) => /\.(glb|gltf|fbx)$/i.test(f.name));
       if (is3D) { this.setMode("model"); loadModelFiles(fs); return; }
       if (this.mode() === "repair") { loadRepairFiles(fs); return; }
+      if (this.mode() === "ai") { AI3D.setImage(fs[0]); return; }
       this.setMode("image");
       loadFile(fs[0]);
     });
@@ -534,6 +543,7 @@ const SpriteLayout = {
         "1": () => this.setMode("image"),
         "2": () => this.setMode("model"),
         "3": () => this.setMode("repair"),
+        "4": () => this.setMode("ai"),
         "[": () => this.toggleSide("left"),
         "]": () => this.toggleSide("right")
       };
@@ -564,7 +574,7 @@ const SpriteLayout = {
   showHelp() {
     const mod = isMac ? "⌘" : "Ctrl";
     const keys = [
-      ["O", "Apri un file per la sorgente attiva"], ["1 · 2 · 3", "Immagine 2D · Modello 3D · Ripara sprite"],
+      ["O", "Apri un file per la sorgente attiva"], ["1 · 2 · 3 · 4", "Immagine 2D · Modello 3D · Ripara sprite · Immagine → 3D (AI)"],
       ["Spazio", "Riproduci / pausa"], ["← →", "Frame precedente / successivo"],
       ["G", "Tutte le direzioni insieme"], ["C", "Confronta prima e dopo (Ripara sprite)"],
       ["[  ]", "Mostra/nascondi strumenti e pannello"], [`${mod}+S`, "Scarica il pacchetto completo (.zip)"],

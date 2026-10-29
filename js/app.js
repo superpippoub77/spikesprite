@@ -225,7 +225,7 @@ window.addEventListener('paste',e=>{if(S.mode!=='image')return;const it=[...(e.c
 async function loadModelFiles(fs){
   fs=[...fs];if(!fs.length)return;if(!has3D){toast('Il motore 3D non è disponibile.');return}
   $('#modelInfo').textContent='Carico '+fs.map(f=>f.name).join(', ')+'…';
-  try{S.model=await loadModel(fs,S.opt);$('#modelInfo').textContent=`Modello caricato con ${S.model.clips.length} animazion${S.model.clips.length===1?'e':'i'}: ${S.model.clips.map(c=>c.name).join(', ')}.`;
+  try{S.model=await loadModel(fs,S.opt);$('#modelInfo').textContent=S.model.clips.length?`Modello caricato con ${S.model.clips.length} animazion${S.model.clips.length===1?'e':'i'}: ${S.model.clips.map(c=>c.name).join(', ')}.`:"Modello senza animazioni: puoi farlo stare fermo, girare, fluttuare o rimbalzare. Per farlo camminare o correre caricalo su Mixamo (gratis), scarica le animazioni e caricale qui insieme al modello.";
     $('#name').value=fs[0].name.replace(/\.[^.]+$/,'').replace(/[^\w\-]+/g,'_').slice(0,40);S.source=null;rebuild(false)}
   catch(e){console.error(e);$('#modelInfo').textContent='';toast(e.message||'Modello non leggibile.')}
 }
@@ -303,6 +303,18 @@ async function buildExport(){
 async function guard(btn,fn){const t=btn.textContent;btn.disabled=true;try{await fn()}catch(e){console.error(e);toast(e.message||'Esportazione non riuscita.')}finally{btn.disabled=false;btn.textContent=t;$('#progress').textContent=''}}
 $('#expPng').onclick=e=>guard(e.currentTarget,async()=>{const x=await buildExport();await saveFile(x.name+'_sheet.png',await toBlob(x.sheet))});
 $('#expJson').onclick=e=>guard(e.currentTarget,async()=>{const x=await buildExport();await saveFile(x.name+'_sheet.json',JSON.stringify(x.json,null,2))});
+/* Modello 3D (.glb): il pupazzo ricavato dall'immagine (nella posa del primo frame) o il modello caricato */
+$('#expGlb').onclick=e=>guard(e.currentTarget,async()=>{
+  if(!S.ready||!S.source||S.source.kind==='frames')throw new Error('Il modello 3D si crea dalle sorgenti Immagine 2D e Modello 3D.');
+  if(!THREE.GLTFExporter)throw new Error('L\'esportatore 3D non si è caricato: serve la connessione internet.');
+  const t=S.source.turn,sc=t.scale.clone(),rot=t.rotation.clone(),parent=t.parent;
+  S.source.setFrame(S.cur,0,true);if(S.source.G)setOutlineMode(S.source.G,true);
+  // in metri: il personaggio alto 1,7 m (le unità interne sono pixel)
+  t.rotation.set(0,0,0);t.scale.setScalar(1.7/(S.source.H||1));t.updateMatrixWorld(true);
+  let glb;try{glb=await new Promise((ok,ko)=>new THREE.GLTFExporter().parse(t,ok,ko,{binary:true,onlyVisible:true}))}
+  finally{t.scale.copy(sc);t.rotation.copy(rot);if(parent)parent.add(t);t.updateMatrixWorld(true);S.cache.clear();S.stripKey='';S.dirty=true}
+  await saveFile(safeName()+'.glb',new Blob([glb],{type:'model/gltf-binary'}));
+});
 $('#expZip').onclick=e=>guard(e.currentTarget,async()=>{
   if(!window.JSZip)throw new Error('La libreria ZIP non si è caricata: scarica PNG e JSON separatamente.');
   const x=await buildExport(),z=new JSZip(),n=x.name;$('#progress').textContent='Comprimo il pacchetto…';

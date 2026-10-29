@@ -96,8 +96,9 @@ const AI3D = (() => {
       const n = p.parameter_name;
       if (!n) continue;
       if (wanted && Object.prototype.hasOwnProperty.call(wanted, n)) { out[n] = resolve(wanted[n]); continue; }
-      if (isImageParam(p)) { out[n] = ctx.prev || ctx.img; continue; }
+      // le immagini facoltative (es. viste multiple fronte/retro/lati di Hunyuan3D) restano vuote
       if (p.parameter_has_default) continue;
+      if (isImageParam(p)) { out[n] = ctx.prev || ctx.img; continue; }
       if (/gallery|files/i.test(p.component || "")) { out[n] = []; continue; }
       if (/checkbox/i.test(p.component || "")) { out[n] = false; continue; }
       out[n] = null;

@@ -1,8 +1,8 @@
 "use strict";
 /* ============ Da immagine a modello 3D con l'intelligenza artificiale (gratis) ============
  *
- * Usa i modelli open source pubblicati come Space gratuiti su Hugging Face (TRELLIS, Hunyuan3D-2,
- * TripoSR) tramite il client ufficiale di Gradio (js/vendor/gradio-client.js). Non serve un server:
+ * Usa i modelli open source pubblicati come Space gratuiti su Hugging Face (TRELLIS, TRELLIS.2,
+ * Hunyuan3D, TripoSG) tramite il client ufficiale di Gradio (js/vendor/gradio-client.js). Non serve un server:
  * la richiesta parte dal browser di chi usa la pagina. Il risultato è un .glb con texture, da
  * vedere qui in 3D, scaricare o passare alla sorgente "Modello 3D" per farne sprite.
  *
@@ -20,45 +20,55 @@ const AI3D = (() => {
     set(k, v) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) { } }
   };
 
-  // Ricette degli Space. Valori = parametri da imporre (per nome); "$img" = immagine caricata,
-  // "$prev" = immagine prodotta dal passo prima, "$tex" / "$simp" / "$seed" = opzioni del pannello.
+  // Ricette degli Space (verificate sulle API di ottobre 2026). Ogni Space ha una o più varianti di
+  // passi: si usa la prima i cui endpoint esistono ancora. Valori = parametri da imporre per nome:
+  // "$img" immagine caricata, "$prev" immagine prodotta dal passo prima, "$glb" modello del passo prima,
+  // "$tex" lato della texture, "$simp" semplificazione (0-1), "$faces" triangoli, "$seed" seme.
   const SPACES = [
     {
-      id: "trellis-community/TRELLIS", label: "TRELLIS · Microsoft (consigliato)",
-      note: "Forma e texture molto fedeli; 1-2 minuti.",
-      steps: [
-        { ep: "/start_session", optional: true },
-        { ep: "/preprocess_image", args: { image: "$img" }, out: "image" },
-        { ep: "/image_to_3d", args: { image: "$prev", is_multiimage: false, seed: "$seed", ss_guidance_strength: 7.5, ss_sampling_steps: 12, slat_guidance_strength: 3, slat_sampling_steps: 12, multiimage_algo: "stochastic" }, out: "none" },
-        { ep: "/extract_glb", args: { mesh_simplify: "$simp", texture_size: "$tex" }, out: "glb" }
+      id: "trellis-community/TRELLIS", label: "TRELLIS · Microsoft",
+      note: "Forma e texture fedeli, il più affidabile; 20-60 secondi.",
+      variants: [
+        [{ ep: "/start_session", optional: true },
+         { ep: "/generate_and_extract_glb", args: { image: "$img", seed: "$seed", mesh_simplify: "$simp", texture_size: "$tex" }, out: "glb" }],
+        [{ ep: "/start_session", optional: true },
+         { ep: "/preprocess_image", args: { image: "$img" }, out: "image" },
+         { ep: "/image_to_3d", args: { image: "$prev", is_multiimage: false, seed: "$seed" }, out: "none" },
+         { ep: "/extract_glb", args: { mesh_simplify: "$simp", texture_size: "$tex" }, out: "glb" }]
       ]
     },
     {
-      id: "JeffreyXiang/TRELLIS", label: "TRELLIS · Space originale",
-      note: "Stesso modello: utile se l'altro è in pausa.",
-      steps: [
-        { ep: "/start_session", optional: true },
-        { ep: "/preprocess_image", args: { image: "$img" }, out: "image" },
-        { ep: "/image_to_3d", args: { image: "$prev", is_multiimage: false, seed: "$seed", ss_guidance_strength: 7.5, ss_sampling_steps: 12, slat_guidance_strength: 3, slat_sampling_steps: 12, multiimage_algo: "stochastic" }, out: "none" },
-        { ep: "/extract_glb", args: { mesh_simplify: "$simp", texture_size: "$tex" }, out: "glb" }
+      id: "microsoft/TRELLIS.2", label: "TRELLIS.2 · Microsoft (più dettagliato)",
+      note: "La versione nuova, più dettagliata; chiede più quota GPU (meglio con un token).",
+      variants: [
+        [{ ep: "/start_session", optional: true },
+         { ep: "/preprocess_image", args: { input: "$img" }, out: "image" },
+         { ep: "/image_to_3d", args: { image: "$prev", seed: "$seed", resolution: "1024" }, out: "none" },
+         { ep: "/extract_glb", args: { decimation_target: "$faces", texture_size: "$tex" }, out: "glb" }]
       ]
     },
     {
       id: "tencent/Hunyuan3D-2", label: "Hunyuan3D-2 · Tencent",
       note: "Forma molto pulita con texture; 1-3 minuti.",
-      steps: [
-        { ep: "/generation_all", args: { image: "$img", seed: "$seed", randomize_seed: false, check_box_rembg: true, steps: 30, guidance_scale: 5, octree_resolution: 256 }, out: "glb", prefer: "last" }
-      ]
+      variants: [[{ ep: "/generation_all", args: { image: "$img", seed: "$seed", randomize_seed: false, check_box_rembg: true, steps: 30, guidance_scale: 5, octree_resolution: 256 }, out: "glb", prefer: "last" }]]
     },
     {
-      id: "stabilityai/TripoSR", label: "TripoSR · Stability AI + Tripo",
-      note: "Velocissimo (pochi secondi), colori senza texture dettagliata.",
-      steps: [
-        { ep: "/preprocess", args: { input_image: "$img", do_remove_background: true, foreground_ratio: 0.85 }, out: "image" },
-        { ep: "/generate", args: { image: "$prev", mc_resolution: 256 }, out: "glb" }
+      id: "tencent/Hunyuan3D-2.1", label: "Hunyuan3D-2.1 · Tencent",
+      note: "Versione nuova di Hunyuan3D, con materiali più realistici.",
+      variants: [[{ ep: "/generation_all", args: { image: "$img", seed: "$seed", randomize_seed: false, check_box_rembg: true, steps: 30, guidance_scale: 5, octree_resolution: 256 }, out: "glb", prefer: "last" }]]
+    },
+    {
+      id: "VAST-AI/TripoSG", label: "TripoSG · VAST (Tripo)",
+      note: "Il modello open source di Tripo: forma molto precisa, poi la texture.",
+      variants: [
+        [{ ep: "/start_session", optional: true },
+         { ep: "/run_segmentation", args: { image: "$img" }, out: "image" },
+         { ep: "/image_to_3d", args: { image: "$prev", seed: "$seed", simplify: true, target_face_num: "$faces" }, out: "glb" },
+         { ep: "/run_texture", args: { image: "$prev", mesh_path: "$glb", seed: "$seed" }, out: "glb", optional: true }]
       ]
     }
   ];
+  const AUTO = "auto";
 
   const st = {
     file: null, url: null, glb: null, glbName: "", job: null, client: null, busy: false, cancelled: false,
@@ -91,7 +101,7 @@ const AI3D = (() => {
   /** Argomenti per un endpoint: per nome dai valori della ricetta, l'immagine dove serve, il resto ai default */
   function buildArgs(info, wanted, ctx) {
     const out = {};
-    const resolve = (v) => v === "$img" ? ctx.img : v === "$prev" ? (ctx.prev || ctx.img) : v === "$tex" ? ctx.tex : v === "$simp" ? ctx.simp : v === "$seed" ? ctx.seed : v;
+    const resolve = (v) => v === "$img" ? ctx.img : v === "$prev" ? (ctx.prev || ctx.img) : v === "$glb" ? ctx.glb : v === "$tex" ? ctx.tex : v === "$simp" ? ctx.simp : v === "$faces" ? ctx.faces : v === "$seed" ? ctx.seed : v;
     for (const p of info.parameters || []) {
       const n = p.parameter_name;
       if (!n) continue;
@@ -120,11 +130,12 @@ const AI3D = (() => {
 
   function friendlyError(e) {
     const m = String((e && (e.message || e.title)) || e || "");
-    if (/quota|exceeded|ZeroGPU|GPU duration/i.test(m)) return "Quota GPU gratuita esaurita per oggi. Aggiungi un token Hugging Face gratuito qui sotto (quota più alta) o riprova più tardi.";
-    if (/sleep|paused|PAUSED|not running|BUILD|RUNTIME_ERROR|could not resolve|404/i.test(m)) return "Lo Space scelto è in pausa o non risponde. Scegline un altro dall'elenco e riprova.";
-    if (/failed to fetch|NetworkError|network/i.test(m)) return "Hugging Face non risponde: controlla la connessione e riprova.";
-    if (/queue|too many/i.test(m)) return "Lo Space è molto occupato. Riprova tra qualche minuto o scegline un altro.";
-    return "Generazione non riuscita: " + (m.length > 180 ? m.slice(0, 180) + "…" : m || "errore sconosciuto");
+    if (/quota/i.test(m)) { const t = m.match(/try again in ([\d:]+)/i); return "quota GPU gratuita esaurita" + (t ? ` (si ricarica tra ${t[1]})` : ""); }
+    if (/worker error|RuntimeError|CUDA|out of memory/i.test(m)) return "errore interno dello Space";
+    if (/sleep|paused|PAUSED|not running|BUILD|RUNTIME_ERROR|CONFIG_ERROR|could not resolve|503|404/i.test(m)) return "Space in pausa o guasto in questo momento";
+    if (/failed to fetch|NetworkError|network/i.test(m)) return "Hugging Face non risponde (controlla la connessione)";
+    if (/queue|too many/i.test(m)) return "Space molto occupato";
+    return m.length > 180 ? m.slice(0, 180) + "…" : m || "errore sconosciuto";
   }
 
   async function loadClient() {
@@ -141,7 +152,7 @@ const AI3D = (() => {
     for await (const msg of job) {
       if (st.cancelled) break;
       if (msg.type === "status") {
-        if (msg.stage === "error") throw new Error(msg.message || "errore dello Space");
+        if (msg.stage === "error") throw new Error([msg.title, msg.message].filter(Boolean).join(": ") || "errore dello Space");
         if (msg.stage === "pending") {
           const q = msg.position != null ? `in coda, posizione ${msg.position + 1}${msg.size ? " di " + msg.size : ""}` : "in attesa";
           say(`${label}: ${q}${msg.eta ? ` · circa ${Math.round(msg.eta)} s` : ""}…`);
@@ -160,53 +171,85 @@ const AI3D = (() => {
   }
 
   // ------------------------------------------------------------------ generazione
-  async function generate() {
-    if (st.busy) return;
-    if (!st.file) { say("Carica prima un'immagine.", "warn"); return; }
-    const spaceId = ($("#aiCustom").value.trim() || $("#aiSpace").value).replace(/^https?:\/\/huggingface\.co\/spaces\//, "").replace(/\/$/, "");
-    const recipe = SPACES.find((s) => s.id === spaceId) || { id: spaceId, label: spaceId, steps: [] };
-    const token = $("#aiToken").value.trim();
-    store.set("fs-ai-space", $("#aiSpace").value);
-    store.set("fs-ai-token", token);
-    st.busy = true; st.cancelled = false; setBusy(true);
-    const t0 = performance.now();
+  const FACES = { 0.98: 20000, 0.95: 50000, 0.9: 100000, 0.8: 200000 };
+
+  /** Un tentativo su uno Space: restituisce il blob .glb o lancia l'errore vero dello Space */
+  async function tryOn(recipe, token, ctx0) {
+    const Client = await loadClient();
+    const opts = {
+      events: ["data", "status"],          // senza "status" gli errori (quota, guasti) non arrivano
+      status_callback: (s) => { if (s && s.status && s.status !== "running") say(`${recipe.label}: ${s.status === "sleeping" ? "lo Space è in pausa, lo sto svegliando" : s.status === "building" ? "lo Space è in avvio" : "stato " + s.status}… (può volerci un minuto)`); }
+    };
+    if (/^hf_/.test(token)) opts.token = token;
+    const client = await Client.connect(recipe.id, opts);
+    st.client = client;
     try {
-      say(`Collegamento a ${recipe.label}…`);
-      const Client = await loadClient();
-      const opts = { status_callback: (s) => { if (s && s.status && s.status !== "running") say(`Lo Space è ${s.status === "sleeping" ? "in pausa: lo sto svegliando" : s.status === "building" ? "in avvio" : s.status}… (può volerci un minuto)`); } };
-      if (/^hf_/.test(token)) opts.token = token;
-      const client = await Client.connect(recipe.id, opts);
-      st.client = client;
       const api = await client.view_api();
-      const named = api.named_endpoints || {};
-      const ctx = { img: st.file, prev: null, tex: +$("#aiTex").value, simp: +$("#aiSimp").value, seed: Math.floor(Math.random() * 100000) };
-      let steps = recipe.steps.filter((s) => named[s.ep] || !s.optional);
-      if (!steps.length || steps.some((s) => !named[s.ep])) {
+      const named = (api && api.named_endpoints) || {};
+      if (!Object.keys(named).length) throw new Error("Lo Space è in pausa o guasto (CONFIG_ERROR)");
+      const ctx = Object.assign({}, ctx0, { prev: null, glb: null });
+      let steps = (recipe.variants || []).map((v) => v.filter((s) => named[s.ep] || !s.optional)).find((v) => v.length && v.every((s) => named[s.ep]));
+      if (!steps) {
         const ep = guessEndpoint(api);
         if (!ep) throw new Error("Questo Space non ha un endpoint immagine → modello 3D riconoscibile.");
         steps = [{ ep, out: "glb", prefer: "last" }];
       }
       let glbFile = null;
       for (let i = 0; i < steps.length; i++) {
-        const s = steps[i], label = `Passo ${i + 1} di ${steps.length}`;
-        const args = buildArgs(named[s.ep], s.args, ctx);
-        const data = await run(client, s.ep, args, label);
+        const s = steps[i], label = `${recipe.label} · passo ${i + 1} di ${steps.length}`;
+        if (s.args && Object.values(s.args).includes("$glb") && !ctx.glb) continue;
+        let data;
+        try { data = await run(client, s.ep, buildArgs(named[s.ep], s.args, ctx), label); }
+        catch (e) { if (s.optional && glbFile && !e.cancelled) break; throw e; }   // texture facoltativa: si tiene la forma
         if (s.out === "image") ctx.prev = pickImage(data) || ctx.prev;
-        if (s.out === "glb") glbFile = pickGlb(data, s.prefer);
+        if (s.out === "glb") { const g = pickGlb(data, s.prefer); if (g) { glbFile = g; ctx.glb = g; } }
       }
-      if (!glbFile) throw new Error("lo Space non ha restituito un file .glb");
-      say("Scarico il modello…");
+      if (!glbFile) throw new Error("lo Space non ha restituito un modello 3D");
+      say(`${recipe.label}: scarico il modello…`);
       const res = await fetch(glbFile.url || glbFile.path, token ? { headers: { Authorization: "Bearer " + token } } : undefined);
       if (!res.ok) throw new Error("download del modello non riuscito (" + res.status + ")");
-      const blob = await res.blob();
-      await showModel(blob, baseName() + ".glb");
-      say(`Modello pronto in ${Math.round((performance.now() - t0) / 1000)} s con ${recipe.label}. Trascinalo per girarlo.`, "ok");
-    } catch (e) {
-      if (!e.cancelled) { console.error(e); say(friendlyError(e), "err"); } else say("Generazione annullata.");
+      return await res.blob();
+    } finally {
+      try { client.close && client.close(); } catch (e) { }
+      st.client = null;
+    }
+  }
+
+  async function generate() {
+    if (st.busy) return;
+    if (!st.file) { say("Carica prima un'immagine.", "warn"); return; }
+    const custom = $("#aiCustom").value.trim().replace(/^https?:\/\/huggingface\.co\/spaces\//, "").replace(/\/$/, "");
+    const choice = $("#aiSpace").value;
+    const list = custom ? [SPACES.find((s) => s.id === custom) || { id: custom, label: custom, variants: [] }]
+      : choice === AUTO ? SPACES : [SPACES.find((s) => s.id === choice) || SPACES[0]];
+    const token = $("#aiToken").value.trim();
+    store.set("fs-ai-space", choice);
+    store.set("fs-ai-token", token);
+    st.busy = true; st.cancelled = false; setBusy(true);
+    const t0 = performance.now();
+    const simp = +$("#aiSimp").value;
+    const ctx = { img: st.file, tex: +$("#aiTex").value, simp, faces: FACES[simp] || 50000, seed: Math.floor(Math.random() * 100000) };
+    const failures = [];
+    try {
+      for (const recipe of list) {
+        say(`Provo ${recipe.label}…`);
+        try {
+          const blob = await tryOn(recipe, token, ctx);
+          await showModel(blob, baseName() + ".glb");
+          say(`Modello pronto in ${Math.round((performance.now() - t0) / 1000)} s con ${recipe.label}. Trascinalo per girarlo.`, "ok");
+          return;
+        } catch (e) {
+          if (e.cancelled || st.cancelled) { say("Generazione annullata."); return; }
+          console.warn(recipe.id, e);
+          failures.push(`• ${recipe.label}: ${friendlyError(e)}`);
+          if (list.length > 1) say(failures.join("\n") + "\nProvo il prossimo…", "warn");
+        }
+      }
+      const quota = failures.some((f) => /quota/i.test(f));
+      say((list.length > 1 ? "Nessun modello AI ha funzionato adesso:\n" : "Generazione non riuscita:\n") + failures.join("\n")
+        + (quota && !/^hf_/.test(token) ? "\n\nLa quota GPU gratuita senza account è piccola: crea un token Hugging Face gratuito (huggingface.co → Settings → Access Tokens, tipo «Read») e incollalo in «Altre opzioni». La quota sale molto." : "\n\nRiprova tra qualche minuto o scegli un altro modello."), "err");
     } finally {
       st.busy = false; setBusy(false);
-      try { st.client && st.client.close && st.client.close(); } catch (e) { }
-      st.client = null;
     }
   }
 
@@ -311,10 +354,11 @@ const AI3D = (() => {
   // ------------------------------------------------------------------ pannello
   function init() {
     const sel = $("#aiSpace");
-    sel.innerHTML = SPACES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
+    sel.innerHTML = `<option value="${AUTO}">Automatico: prova i modelli finché uno funziona (consigliato)</option>`
+      + SPACES.map((s) => `<option value="${s.id}">${s.label}</option>`).join("");
     const saved = store.get("fs-ai-space");
-    if (saved && SPACES.some((s) => s.id === saved)) sel.value = saved;
-    const note = () => { const s = SPACES.find((x) => x.id === sel.value); $("#aiNote").textContent = s ? s.note : ""; $("#aiTrellisOpts").hidden = !/TRELLIS/i.test(sel.value); };
+    sel.value = saved && SPACES.some((s) => s.id === saved) ? saved : AUTO;
+    const note = () => { const s = SPACES.find((x) => x.id === sel.value); $("#aiNote").textContent = s ? s.note : "TRELLIS, poi TRELLIS.2, Hunyuan3D e TripoSG: se uno è occupato, guasto o senza quota si passa al successivo."; };
     sel.addEventListener("change", note); note();
     $("#aiToken").value = store.get("fs-ai-token") || "";
 

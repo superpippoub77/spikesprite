@@ -6,7 +6,9 @@ Apri `index.html` nel browser (serve internet per three.js, JSZip e i font).
 ## Immagine → modello 3D (AI gratuita)
 Scheda **🤖 Immagine → 3D (AI)** (tasto 4): da una foto o un disegno a un vero modello 3D con texture (.glb),
 come fa Tripo3D, usando modelli open source gratuiti pubblicati su Hugging Face:
-**TRELLIS** (Microsoft, consigliato), **Hunyuan3D-2** (Tencent), **TripoSR** (Stability AI + Tripo).
+**TRELLIS** e **TRELLIS.2** (Microsoft), **Hunyuan3D-2 / 2.1** (Tencent), **TripoSG** (VAST, il modello open source di Tripo).
+In modalità **Automatica** li prova in ordine finché uno funziona; gli errori veri degli Space (quota GPU esaurita,
+Space guasto o in pausa) compaiono nel pannello.
 - La richiesta parte dal browser con il client ufficiale di Gradio (`js/vendor/gradio-client.js`): niente server.
 - I parametri si leggono dall'API dello Space mentre gira, quindi piccoli cambi degli Space non rompono nulla;
   si può anche scrivere uno Space diverso in "Altre opzioni".

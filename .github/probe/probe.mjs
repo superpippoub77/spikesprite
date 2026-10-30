@@ -37,19 +37,19 @@ for (const id of SPACES.filter(Boolean).slice(0, process.env.LIST ? 99 : 0)) {
 async function run(c, ep, args) {
   console.log("  >>", ep, short(Object.fromEntries(Object.entries(args).map(([k, v]) => [k, v instanceof Blob ? "BLOB" : v]))));
   const job = c.submit(ep, args); let data = null;
-  for await (const m of job) { console.log("  <<", m.type, short(m).slice(0, 900)); if (m.type === "data") data = m.data; }
+  for await (const m of job) { if (m.type !== "status" || m.stage !== "pending" || !(m.position > 0)) console.log("  <<", m.type, short(m).slice(0, 900)); if (m.type === "data") data = m.data; }
   return data;
 }
 const T0 = Date.now();
 const RUNS = {
-  "trellis-community/TRELLIS": async (c) => { await run(c, "/start_session", {}); await run(c, "/generate_and_extract_glb", { image: handle_file(img), seed: 0, mesh_simplify: 0.95, texture_size: 1024 }); },
+  "trellis-community/TRELLIS-skip": async (c) => { await run(c, "/start_session", {}); await run(c, "/generate_and_extract_glb", { image: handle_file(img), seed: 0, mesh_simplify: 0.95, texture_size: 1024 }); },
   "tencent/Hunyuan3D-2": async (c) => { await run(c, "/generation_all", { image: handle_file(img), seed: 1234, randomize_seed: false, check_box_rembg: true, steps: 30, guidance_scale: 5, octree_resolution: 256 }); },
   "microsoft/TRELLIS.2": async (c) => { await run(c, "/start_session", {}); const pre = await run(c, "/preprocess_image", { input: handle_file(img) }); await run(c, "/image_to_3d", { image: pre?.[0] ?? handle_file(img), seed: 0, resolution: "512" }); await run(c, "/extract_glb", { decimation_target: 100000, texture_size: 1024 }); },
   "VAST-AI/TripoSG": async (c) => { await run(c, "/start_session", {}); const seg = await run(c, "/run_segmentation", { image: handle_file(img) }); const m = await run(c, "/image_to_3d", { image: seg?.[0] ?? handle_file(img), seed: 0, num_inference_steps: 30, simplify: true, target_face_num: 50000 }); if (m?.[0]) await run(c, "/run_texture", { image: seg?.[0] ?? handle_file(img), mesh_path: m[0], seed: 0 }); }
 };
-for (const [id, fn] of Object.entries(RUNS)) {
+for (const [id, fn] of Object.entries(RUNS).filter(([k]) => !k.endsWith("-skip"))) {
   console.log("\n#################### RUN " + id);
-  try { const c = await Client.connect(id); await fn(c); } catch (e) { console.log("  RUN ERROR:", e?.message || short(e)); }
+  try { const c = await Client.connect(id, { events: ["data", "status", "log"] }); await fn(c); } catch (e) { console.log("  RUN ERROR:", e?.message || short(e)); }
   console.log("  tempo:", Math.round((Date.now() - T0) / 1000), "s");
 }
 process.exit(0);
